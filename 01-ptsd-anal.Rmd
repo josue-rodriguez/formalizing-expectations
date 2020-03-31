@@ -1,0 +1,452 @@
+---
+title: "Confirmatory and Exploratory Analyses"
+author: "Josue Rodriguez"
+date: "3/27/2020"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+# Set up
+
+```{r setup2, message=FALSE}
+# libraries
+library(BGGM)
+library(MASS)
+library(networktools)
+library(network)
+library(ggplot2)
+source("99-bridge-plot.R")
+
+set.seed(1)
+
+# column names
+col_names <-
+  c(
+    "Intrusive Thoughts",
+    "Nightmares",
+    "Flashbacks",
+    "Physiological/psychological reactivity",
+    
+    "Avoidance of thoughts",
+    "Avoidance of situations",
+    "Amnesia",
+    "Disinterest in activities",
+    "Feeling detached",
+    "Emotional numbing",
+    "Foreshortened future",
+    
+    "Sleep problems",
+    "Irritability",
+    "Concentration problems",
+    "Hypervigilance",
+    "Startle response"
+  )
+
+# node names
+node_names <- c(
+  paste0("B", 1:4), # re-experienceing
+  paste0("C", 1:7), # avoidance
+  paste0("D", 1:5) # arousal
+)
+# community names
+comms <- c(
+  rep("Re-Experiencing", 4),
+  rep("Avoidance", 7),
+  rep("Arousal", 5)
+)
+
+# color palette
+pal <- ggthemes::few_pal()(3)
+node_cols <- c(
+  "Re-Experiencing" = pal[1],
+  "Avoidance" = pal[2],
+  "Arousal" = pal[3])
+```
+
+# Exploratory analysis
+## Visual
+
+```{r explore-visual}
+ptsd1 <- mvrnorm(n = 965, mu = rep(0, 16), Sigma = ptsd_cor4, empirical = TRUE)
+colnames(ptsd1) <- col_names
+
+# explore and select graph
+expl1 <- explore(ptsd1, chains = 4, cores = 4)
+slct1 <- BGGM::select(expl1, alternative = "greater", bf_cut = 3)
+
+# print A^CI, A^CD, par cor amtrix
+adj_ci <- slct1$Adj_01
+adj_cd <- slct1$Adj_20
+dimnames(adj_ci) <- dimnames(adj_cd) <- list(node_names, node_names)
+
+
+# keep only bridges edges
+# slct$Adj_20[1:4, 1:4] <- 0
+# slct$Adj_20[5:11, 5:11] <- 0
+# slct$Adj_20[12:16, 12:16] <- 0
+
+# plot bridge edges
+plot_bridges <-
+  plot(slct1,
+     node_labels = node_names,
+     node_inner_size = 15,
+     layout = "circle",
+     txt_size = 5,
+     node_groups = comms,
+     palette = node_cols)$plt
+
+
+```
+
+```{r neighbor_helper, include = FALSE}
+colnames(slct1$Adj_20) <- node_names
+rownames(slct1$Adj_20) <- node_names
+prnt_nbrs <- function(node, adj) {
+  return(names(adj[node, ][adj[node, ] == 1]))
+}
+```
+
+
+```{r pcor_table, echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+select <- BGGM::select
+library(knitr)
+library(kableExtra)
+pnonzero <- round(slct1$partials_positive, 2) %>% as.data.frame
+colnames(pnonzero) <- node_names
+rownames(pnonzero) <- node_names
+pnonzero %>% 
+  mutate(` ` = node_names) %>% 
+  dplyr::select(` `, everything()) %>% 
+  mutate_if(is.numeric, function(x){
+    cell_spec(x,
+              bold = T,
+              font_size = ifelse(x > 0, 14, 0))
+  }) %>%
+  kable(escape = FALSE, align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+## Bridge explore
+
+```{r bridge, warning=FALSE}
+bridge_stats <- bridge(adj_cd, communities = comms)
+bridge_stats
+```
+
+```{r adj_plots, echo=FALSE, fig.height=6, fig.width=8}
+source("03-plot-adj.R")
+plot_full <- 
+  make_adj_plot(slct1$Adj_20,
+              node_labels = node_names,
+              communities = comms,
+              bridges = c("D3", "D5"),
+              fade = c("D1", "D2", "D4", "C3", "C1"),
+              node_size = 12)  +
+  ggthemes::scale_fill_few() +
+  guides(fill = F) +
+  theme_facet()
+
+plot_cd <- 
+  make_adj_plot(slct1$Adj_20,
+              node_labels = node_names,
+              communities = comms,
+              bridges = NULL,
+              fade = NULL,
+              type = "ci",
+              node_size = 12) +
+  ggthemes::scale_fill_few() +
+  guides(fill = guide_legend(override.aes = list(size=10))) +
+  theme_facet() +
+  theme(legend.position = "top",
+        legend.box.background = element_blank(),
+        legend.background = element_blank(),
+        legend.title = element_blank()) 
+plot_ci <- 
+  make_adj_plot(slct1$Adj_01,
+              node_labels = node_names,
+              communities = comms,
+              bridges = paste0("D", 1),
+              fade = NULL,
+              type = "ci",
+              node_size = 12) +
+  ggthemes::scale_fill_few() +
+  guides(fill = guide_legend(override.aes = list(size=10))) +
+  theme_facet() +
+  theme(legend.position = "top",
+        legend.box.background = element_blank(),
+        legend.background = element_blank(),
+        legend.title = element_blank())
+
+# print(plot_full)
+# print(plot_cd)
+# print(plot_ci)
+```
+
+
+
+
+```{r}
+coord_cd <- 
+  data.frame(
+    x = c(0.7, 1, 1, 0.7, # B
+          2, 2, # D
+          3, 3.3, 3, 3.3, 3), # C
+    
+    y = c(1, 3, 5, 7,  #B
+          2, 6, #D
+          0, 2, 4, 6, 8), #C
+    
+    node = c(paste0("B", 1:4),
+             paste0("D", c(5, 3)), 
+             paste0("C", c(2,4,5:7))),
+    comm = c(rep("3", 4),
+             rep("1", 2),
+             rep("2", 5))
+    )
+
+bridge_plot <-
+  ggplot(coord_cd, aes(x, y)) +
+  # bridge cors
+  annotate(geom = "segment",
+           x = c(0.7, 1, 1, 0.7,
+                 3, 3.3, 3.3, 3, 3.3, 3),
+           xend = c(2, 2, 2, 2,
+                    2, 2, 2, 2, 2, 2),
+           y = c(1, 3, 5, 7,
+                 0, 2, 2, 4, 6, 8),
+           yend = c(2, 2, 6, 6,
+                    2, 2, 6, 2, 6, 6)) +
+  # b-cors
+  annotate(geom = "curve",
+           x = c(0.7, 0.7, 1, 1, 1),
+           xend = c(1, 1, 1, 0.7, 0.7),
+           y = c(1, 1, 3, 3, 5),
+           yend = c(3, 5, 5, 7, 7),
+           curvature = 0,
+           col = "gray70") +
+  # c-cors
+  annotate(geom = "curve",
+           x = c(3, 3.3, 3.3, 3, 3, 3.3),
+           xend = c(3, 3, 3, 3.3, 3, 3),
+           y = c(0, 2, 2, 4, 4, 6),
+           yend = c(4, 4, 8, 6, 8, 8),
+           curvature = 0,
+           col = "gray70") +
+  geom_point(size = c(rep(16, 4), rep(18, 2), rep(16, 5))) +
+  geom_point(aes(fill = comm), 
+             size = c(rep(15, 4), rep(17, 2), rep(15, 5)), 
+             shape = 21,
+             show.legend = FALSE) +
+  geom_text(aes(label = node)) +
+  lims(x = c(0.5, 3.5), y = c(-0.2, 8.3))  +
+  ggthemes::scale_fill_few() +
+  theme_facet()
+```
+
+```{r plot_grid1, message=FALSE}
+library(cowplot)
+plt_list <- c(plot_cd, plot_ci, plot_full, bridge_plot)
+plt_grid1 <- 
+  plot_grid(plot_cd + theme(legend.position = "none"),
+            plot_ci + theme(legend.position = "none"),
+            plot_full + theme(legend.position = "none"),
+            bridge_plot + theme(legend.position = "none"),
+            nrow = 2,
+            ncol = 2,
+            labels = "AUTO",
+            label_x = 0.015)
+
+l1 <- expression(bold("A")^italic("CD"))
+l2 <- expression(bold("A")^italic("CI"))
+plot_grid(get_legend(plot_cd),
+     plt_grid1,
+     nrow = 2,
+     rel_heights = c(1, 10))        
+```
+
+```{r network_plots, echo=FALSE, warning=T}
+source("99-bridge-plot.R")
+plot_bstrength <-
+  plot(bridge_stats, 
+       order = "value", 
+       zscore = FALSE,
+       include = c("Bridge Strength"), 
+       color = TRUE, 
+       text_color = FALSE,
+       colpalette = pal,
+       node_size = 8,
+       lab_size = 4) +
+    theme_facet(base_size = 11) +
+    theme(panel.grid = element_line(colour = "grey92"), 
+          panel.grid.minor = element_line(size = rel(0.5)),
+          strip.text = element_blank(),
+          axis.text.x = element_text())
+```
+
+```{r plot_grid2}
+plt_grid2a <- 
+  plot_grid(plot_full + theme(legend.position = "none"),
+            plot_ci + theme(legend.position = "none"),
+            nrow = 1,
+            ncol = 2)
+plt_grid2b <- 
+  plot_grid(plt_grid2a,
+            bridge_plot + theme(legend.position = "none"),
+            nrow = 2,
+            ncol =1)
+
+l1 <- expression(bold("A")^italic("CD"))
+l2 <- expression(bold("A")^italic("CI"))
+
+
+all_plots <- 
+  plot_grid(get_legend(plot_cd),
+       plt_grid2b,
+       nrow = 2,
+       rel_heights = c(1, 10))        
+```
+```{r}
+ggsave("figs/01-plot-ptsd.pdf",
+       plot = all_plots,
+       dpi = 320,
+       height = 3 * 3,
+       width = 4 * 3)
+```
+
+
+
+# Confirmatory
+
+```{r, generate-confirm-data}
+set.seed(1)
+ptsd2 <- mvrnorm(n = 926, mu = rep(0, 16), Sigma = ptsd_cor3, empirical = TRUE)
+ptsd2 <- as.data.frame(ptsd2)
+names(ptsd2) <- node_names
+```
+
+```{r confirm-network}
+# explore and select graph
+expl2 <- explore(ptsd2, chains = 4, cores = 4)
+slct2 <- BGGM::select(expl2, alternative = "greater", bf_cut = 3)
+
+# plot bridge edges
+make_adj_plot(slct2$Adj_20,
+              node_labels = node_names,
+              communities = comms,
+              type = "cd",
+              bridges = c("D3", "D5"),
+              fade = c("D1", "D2", "D4"),
+              node_size = 12) +
+  ggthemes::scale_fill_few() +
+  guides(fill = guide_legend(override.aes = list(size=10))) +
+  theme_facet() +
+  theme(legend.position = "top",
+        legend.box.background = element_blank(),
+        legend.background = element_blank(),
+        legend.title = element_blank()) 
+bridge(slct2$Adj_20, communities = comms)$`Bridge Strength`
+
+```
+
+
+```{r, confirm-hyp}
+hypotheses_d3 <- c("B4--D3 > C4--D3 > (C6--D3, C7--D3) > B3--D3;
+                    B4--D3 > C4--D3 > (C6--D3, C7--D3) > B3--D3 > 0")
+# hypotheses_d3 <- c("C4--D3 > (C6--D3, C7--D3) > B3--D3;
+#                    C4--D3 > (C6--D3, C7--D3) > B3--D3 > 0")
+confirm_d3 <- confirm(Y = ptsd2,
+                      hypothesis = hypotheses_d3,
+                      iter = 25000)
+summary(confirm_d3)
+
+hypotheses_d5 <- c("(B2--D5, C5--D5) > B1--D5 > (C2--D5, C3--D5);
+                    (B2--D5, C5--D5) > B1--D5 > (C2--D5, C3--D5) > 0")
+
+# 0.09	0.11	0.08	0	0.08	0.11	
+
+#(b2,c5) > b1 > (c2, c3)
+confirm_d5 <- confirm(Y = ptsd2,
+                      hypothesis = hypotheses_d5,
+                      iter = 25e3)
+print(summary(confirm_d5))
+```
+
+# Garbage
+
+```{r eval=FALSE, include=FALSE}
+coord_cd <- 
+  data.frame(
+    x = c(1, 1, 1, 1, # B
+          2, 2, # D
+          3, 3 , 3, 3, 3), # C
+    
+    y = c(1, 3, 5, 7,  #B
+          2, 6, #D
+          0, 2, 4, 6, 8), #C
+    
+    node = c(paste0("B", 1:4),
+             paste0("D", c(5, 3)), 
+             paste0("C", c(2,4,5:7))),
+    comm = c(rep("3", 4),
+             rep("1", 2),
+             rep("2", 5))
+    )
+
+# bridge_plot <-
+  ggplot(coord_cd, aes(x, y)) +
+  # bridge lines
+  annotate(geom = "segment",
+           x = c(1, 1, 1, 1,
+                 3, 3, 3, 3, 3, 3),
+           xend = c(2, 2, 2, 2,
+                    2, 2, 2, 2, 2, 2),
+           y = c(1, 3, 5, 7,
+                 0, 2, 2, 4, 6, 8),
+           yend = c(2, 2, 6, 6,
+                    2, 2, 6, 2, 6, 6)) +
+  # b lines
+  annotate(geom = "curve",
+           x = c(1, 1, 1, 1, 1),
+           xend = c(1, 1, 1, 1, 1),
+           y = c(1, 1, 3, 3, 5),
+           yend = c(3, 5, 5, 7, 7),
+           curvature = -1,
+           col = "gray70") +
+  # c lines
+  annotate(geom = "curve",
+           x = c(3, 3, 3, 3, 3, 3),
+           xend = c(3, 3, 3, 3, 3, 3),
+           y = c(0, 2, 2, 4, 4, 6),
+           yend = c(4, 4, 8, 6, 8, 8),
+           curvature = 1,
+           col = "gray70") +
+  # d3 cors
+  annotate(geom = "label",
+           label = c("0.08", "0.14", "0.10", "0.09", "0.09"),
+           x = c(1.5, 1.5, 2.4, 2.6, 2.6),
+           y = c(5.5, 6.5, 4.4, 6, 7.2),
+           size = 3.5) +
+  # d5 cors
+  annotate(geom = "label",
+           label = c("0.09", "0.11", "0.08", "0.08", "0.11"),
+           x = c(1.5, 1.5, 2.5, 2.5, 2.50),
+           y = c(1.5, 2.5, 1.0, 2.0, 3.00),
+           size = 3.5) +
+  geom_point(size = c(rep(16, 4), rep(18, 2), rep(16, 5))) +
+  geom_point(aes(fill = comm), 
+             size = c(rep(15, 4), rep(17, 2), rep(15, 5)), 
+             shape = 21,
+             show.legend = FALSE) +
+  geom_text(aes(label = node)) +
+  lims(x = c(0.5, 3.8), y = c(-0.2, 8.3))  +
+  ggthemes::scale_fill_few() +
+  theme_facet()
+# bridge_plot
+```
