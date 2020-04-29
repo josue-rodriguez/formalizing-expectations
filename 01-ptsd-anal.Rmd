@@ -5,6 +5,7 @@ date: "3/27/2020"
 output: 
   html_document:
     toc: true
+    toc_depth: 3
     toc_float: true
 ---
 
@@ -21,7 +22,6 @@ library(MASS)
 library(networktools)
 library(network)
 library(ggplot2)
-source("99-bridge-plot.R")
 
 set.seed(1)
 
@@ -80,45 +80,19 @@ colnames(ptsd1) <- col_names
 expl1 <- explore(ptsd1, chains = 4, cores = 4)
 slct1 <- BGGM::select(expl1, alternative = "greater", bf_cut = 3)
 
-# print A^CI, A^CD, par cor amtrix
-adj_ci <- slct1$Adj_01
-adj_cd <- slct1$Adj_20
-dimnames(adj_ci) <- dimnames(adj_cd) <- list(node_names, node_names)
-
-
-# keep only bridges edges
-# slct$Adj_20[1:4, 1:4] <- 0
-# slct$Adj_20[5:11, 5:11] <- 0
-# slct$Adj_20[12:16, 12:16] <- 0
-
-# plot bridge edges
-plot_bridges <-
-  plot(slct1,
-     node_labels = node_names,
-     node_inner_size = 15,
-     layout = "circle",
-     txt_size = 5,
-     node_groups = comms,
-     palette = node_cols)$plt
-
-
+# pcor_matrix
+pcors_exp <- round(slct1$pcor_mat_zero, 2)
+dimnames(pcors_exp) <- list(node_names, node_names)
 ```
 
-```{r neighbor_helper, include = FALSE}
-colnames(slct1$Adj_20) <- node_names
-rownames(slct1$Adj_20) <- node_names
-prnt_nbrs <- function(node, adj) {
-  return(names(adj[node, ][adj[node, ] == 1]))
-}
-```
-
-
+## Correlation Table
 ```{r pcor_table, echo=FALSE, message=FALSE, warning=FALSE}
 library(dplyr)
-select <- BGGM::select
 library(knitr)
 library(kableExtra)
-pnonzero <- round(slct1$partials_positive, 2) %>% as.data.frame
+
+select <- BGGM::select
+pnonzero <- pcors_exp %>% as.data.frame
 colnames(pnonzero) <- node_names
 rownames(pnonzero) <- node_names
 pnonzero %>% 
@@ -133,43 +107,33 @@ pnonzero %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-## Bridge explore
+## Bridge Strength
 
 ```{r bridge, warning=FALSE}
-bridge_stats <- bridge(adj_cd, communities = comms)
-bridge_stats
+bridge_strengths <- sort(bridge(pcors_exp, communities = comms)$`Bridge Strength`, decreasing = TRUE) 
+bridge_strength_cutoff <- quantile(bridge_strengths, 0.9)
+bridge_strengths[bridge_strengths > bridge_strength_cutoff]
 ```
 
-```{r adj_plots, echo=FALSE, fig.height=6, fig.width=8}
+## Plots
+```{r adj_plots, include=FALSE, fig.height=6, fig.width=8}
 source("03-plot-adj.R")
-plot_full <- 
-  make_adj_plot(slct1$Adj_20,
-              node_labels = node_names,
-              communities = comms,
-              bridges = c("D3", "D5"),
-              fade = c("D1", "D2", "D4", "C3", "C1"),
-              node_size = 12)  +
-  ggthemes::scale_fill_few() +
-  guides(fill = F) +
-  theme_facet()
-
 plot_cd <- 
   make_adj_plot(slct1$Adj_20,
               node_labels = node_names,
               communities = comms,
-              bridges = NULL,
-              fade = NULL,
-              type = "ci",
-              node_size = 12) +
+              bridges = c("D1", "B4"),
+              fade = c("D2", "D5", "B3", 
+                       "C3", "C4", "C5"),
+              node_size = 12,
+              type = "cd")  +
   ggthemes::scale_fill_few() +
-  guides(fill = guide_legend(override.aes = list(size=10))) +
   theme_facet() +
   theme(legend.position = "top",
-        legend.box.background = element_blank(),
-        legend.background = element_blank(),
-        legend.title = element_blank()) 
-plot_ci <- 
-  make_adj_plot(slct1$Adj_01,
+        legend.text = element_text(size = 14),
+        legend.title = element_blank())
+plot_ci <-
+  make_adj_plot(slct1$Adj_02,
               node_labels = node_names,
               communities = comms,
               bridges = paste0("D", 1),
@@ -183,8 +147,6 @@ plot_ci <-
         legend.box.background = element_blank(),
         legend.background = element_blank(),
         legend.title = element_blank())
-
-# print(plot_full)
 # print(plot_cd)
 # print(plot_ci)
 ```
@@ -192,131 +154,219 @@ plot_ci <-
 
 
 
-```{r}
-coord_cd <- 
+```{r plot-d1}
+coord_d1 <- 
   data.frame(
-    x = c(0.7, 1, 1, 0.7, # B
-          2, 2, # D
-          3, 3.3, 3, 3.3, 3), # C
-    
-    y = c(1, 3, 5, 7,  #B
-          2, 6, #D
-          0, 2, 4, 6, 8), #C
-    
-    node = c(paste0("B", 1:4),
-             paste0("D", c(5, 3)), 
-             paste0("C", c(2,4,5:7))),
-    comm = c(rep("3", 4),
-             rep("1", 2),
-             rep("2", 5))
+    x = c(1, 0, 1, 2, 3, 4, 3),
+    y = c(1, 2, 3, 2, 1, 2, 3),
+    comm = c("3",  "3",  "3",  "1",  "2",  "2",  "2"),
+    node = c("B1", "B4", "B2", "D1", "C6", "C1", "C2")
     )
+    
 
-bridge_plot <-
-  ggplot(coord_cd, aes(x, y)) +
+plot_d1 <-
+  ggplot(coord_d1, aes(x, y)) +
   # bridge cors
   annotate(geom = "segment",
-           x = c(0.7, 1, 1, 0.7,
-                 3, 3.3, 3.3, 3, 3.3, 3),
-           xend = c(2, 2, 2, 2,
-                    2, 2, 2, 2, 2, 2),
-           y = c(1, 3, 5, 7,
-                 0, 2, 2, 4, 6, 8),
-           yend = c(2, 2, 6, 6,
-                    2, 2, 6, 2, 6, 6)) +
-  # b-cors
-  annotate(geom = "curve",
-           x = c(0.7, 0.7, 1, 1, 1),
-           xend = c(1, 1, 1, 0.7, 0.7),
-           y = c(1, 1, 3, 3, 5),
-           yend = c(3, 5, 5, 7, 7),
-           curvature = 0,
+           x = rep(2, 4),
+           xend = c(1, 1, 3, 3),
+           y = rep(2, 4),
+           yend = c(1, 3, 1, 3),
+           linetype = "dashed",
+           size = 1) +
+  # independent
+  annotate(geom = "segment",
+           x = c(2, 2),
+           xend = c(0, 4),
+           y = c(2, 2),
+           yend = c(2, 2),
+           linetype = "dotted",
            col = "gray70") +
-  # c-cors
-  annotate(geom = "curve",
-           x = c(3, 3.3, 3.3, 3, 3, 3.3),
-           xend = c(3, 3, 3, 3.3, 3, 3),
-           y = c(0, 2, 2, 4, 4, 6),
-           yend = c(4, 4, 8, 6, 8, 8),
-           curvature = 0,
+  # B nodes
+  annotate(geom = "segment",
+           x = c(1, 1, 0),
+           xend = c(0, 1, 1),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(3, 1, 1),
            col = "gray70") +
-  geom_point(size = c(rep(16, 4), rep(18, 2), rep(16, 5))) +
+  # C nodes
+  annotate(geom = "segment",
+           x = c(3, 3, 4),
+           xend = c(4, 3, 3),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(1, 3, 3),
+           col = "gray70") +
+  # bridge cor labels
+  annotate(geom = "label",
+           label = c(0.11, 0.31, 0.08, 0.15),
+           x = c(1.5, 1.5, 2.5, 2.5),
+           y = c(1.5, 2.5, 1.5, 2.5)) +
+  geom_point(size = 21) +
   geom_point(aes(fill = comm), 
-             size = c(rep(15, 4), rep(17, 2), rep(15, 5)), 
+             size = 20, 
              shape = 21,
              show.legend = FALSE) +
   geom_text(aes(label = node)) +
-  lims(x = c(0.5, 3.5), y = c(-0.2, 8.3))  +
+  lims(x = c(-0.1, 4.1), y = c(0.9, 3.1))  +
   ggthemes::scale_fill_few() +
   theme_facet()
 ```
 
-```{r plot_grid1, message=FALSE}
+```{r plot-b4}
+coord_b4 <- 
+  data.frame(
+    x = coord_d1$x,
+    y = coord_d1$y,
+    comm = c("2", "2", "2", "3", "1", "1", "1"),
+    node = c("C7", "C6", "C1", "B4", "D4", "D1", "D3")
+    )
+    
+
+plot_b4 <-
+  ggplot(coord_b4, aes(x, y)) +
+  # bridge cors
+  annotate(geom = "segment",
+           x = rep(2, 4),
+           xend = c(1, 1, 3, 3),
+           y = rep(2, 4),
+           yend = c(1, 3, 1, 3),
+           size = 1) +
+  # independent
+  annotate(geom = "segment",
+           x = c(2, 2),
+           xend = c(0, 4),
+           y = c(2, 2),
+           yend = c(2, 2),
+           linetype = "dotted",
+           col = "gray70") +
+  # C nodes
+  annotate(geom = "segment",
+           x = c(1, 1, 0),
+           xend = c(0, 1, 1),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(3, 3, 1),
+           col = "gray70") +
+  # D nodes
+  annotate(geom = "segment",
+           x = c(3, 3, 4),
+           xend = c(4, 3, 3),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(1, 1, 3),
+           col = "gray70") +
+  # bridge cor labels
+  annotate(geom = "label",
+           label = c(0.11, 0.21, 0.07, 0.14),
+           x = c(1.5, 1.5, 2.5, 2.5),
+           y = c(1.5, 2.5, 1.5, 2.5)) +
+  geom_point(size = 21) +
+  geom_point(aes(fill = comm), 
+             size = 20, 
+             shape = 21,
+             show.legend = FALSE) +
+  geom_text(aes(label = node)) +
+  lims(x = c(-0.1, 4.1), y = c(0.9, 3.1))  +
+  ggthemes::scale_fill_few() +
+  theme_facet()
+```
+
+```{r make_legend, include=FALSE}
+tst <- data.frame(x = 1:4,
+                  y = 1:4,
+                  g = c("A", "B", "C", "D"))
+labs <- c(expression("Bridge: "*italic(B)*"4"),
+          expression("Bridge: "*italic(D)*"1"),
+          "Cond. Dep.",
+          "Cond. Ind."
+          # expression(italic(CD)),
+          # expression(italic(CI))
+          )
+
+plot_legend_line <- 
+  ggplot(tst, aes(x, y)) +
+  geom_line(aes(linetype = g, col = g)) +
+  scale_linetype_manual(labels = labs,
+                        values = c(1, 2, 1, 3)) +
+  scale_color_manual(labels = labs,
+                     values = c("black", "black", "gray70", "gray70")) +
+  guides(linetype = guide_legend(override.aes = list(size = 1))) +
+  theme_blank()+
+  theme(legend.position = "top",
+        legend.title = element_blank(),
+        legend.text = element_text(size = 14),
+        legend.key.width = unit(1, "cm"),
+        legend.box.background = element_blank()) 
+  
+```
+
+### Final Plot
+
+```{r plot_all, message=FALSE, fig.height=8, fig.width=8}
 library(cowplot)
-plt_list <- c(plot_cd, plot_ci, plot_full, bridge_plot)
+# plot networks
 plt_grid1 <- 
   plot_grid(plot_cd + theme(legend.position = "none"),
             plot_ci + theme(legend.position = "none"),
-            plot_full + theme(legend.position = "none"),
-            bridge_plot + theme(legend.position = "none"),
-            nrow = 2,
-            ncol = 2,
-            labels = "AUTO",
-            label_x = 0.015)
-
-l1 <- expression(bold("A")^italic("CD"))
-l2 <- expression(bold("A")^italic("CI"))
-plot_grid(get_legend(plot_cd),
-     plt_grid1,
-     nrow = 2,
-     rel_heights = c(1, 10))        
-```
-
-```{r network_plots, echo=FALSE, warning=T}
-source("99-bridge-plot.R")
-plot_bstrength <-
-  plot(bridge_stats, 
-       order = "value", 
-       zscore = FALSE,
-       include = c("Bridge Strength"), 
-       color = TRUE, 
-       text_color = FALSE,
-       colpalette = pal,
-       node_size = 8,
-       lab_size = 4) +
-    theme_facet(base_size = 11) +
-    theme(panel.grid = element_line(colour = "grey92"), 
-          panel.grid.minor = element_line(size = rel(0.5)),
-          strip.text = element_blank(),
-          axis.text.x = element_text())
-```
-
-```{r plot_grid2}
-plt_grid2a <- 
-  plot_grid(plot_full + theme(legend.position = "none"),
-            plot_ci + theme(legend.position = "none"),
-            nrow = 1,
             ncol = 2)
-plt_grid2b <- 
-  plot_grid(plt_grid2a,
-            bridge_plot + theme(legend.position = "none"),
-            nrow = 2,
-            ncol =1)
 
-l1 <- expression(bold("A")^italic("CD"))
-l2 <- expression(bold("A")^italic("CI"))
+# plot zoomed in 
+plt_grid2 <- 
+  plot_grid(NULL,
+            plot_d1,
+            NULL,
+            plot_b4,
+            NULL,
+            ncol = 5,
+            rel_widths = c(1, 25, 1, 25, 1))
+plt_grid_legend <- 
+  plot_grid(
+            NULL,
+            get_legend(plot_cd), 
+            get_legend(plot_legend_line), 
+            NULL,
+            rel_widths = c(0.1, 20, 20, 1),
+            ncol = 4
+            )
 
 
-all_plots <- 
-  plot_grid(get_legend(plot_cd),
-       plt_grid2b,
-       nrow = 2,
-       rel_heights = c(1, 10))        
+plt_grid <- plot_grid(plt_grid1,
+                      NULL,
+                      plt_grid2,
+                      nrow = 3,
+                      rel_heights = c(5.5, 1, 4.5))
+all_plots <-
+  plot_grid(plt_grid_legend,
+            plt_grid,
+            nrow = 3,
+            rel_heights = c(1, 10)) +
+  draw_label("A",
+             x = 0.04 ,
+             y = 0.875,
+             size = 40) +
+  draw_label("B",
+             x = 0.54 ,
+             y = 0.875,
+             size = 40) +
+  draw_label("C",
+             x = 0.05 ,
+             y = 0.385,
+             size = 40) +
+  draw_label("D",
+             x = 0.54 ,
+             y = 0.385,
+             size = 40)
+
+print(all_plots)
 ```
-```{r}
+
+```{r save-ptsd-plot, include=FALSE, eval=FALSE}
 ggsave("figs/01-plot-ptsd.pdf",
        plot = all_plots,
        dpi = 320,
-       height = 3 * 3,
+       height = 4 * 3,
        width = 4 * 3)
 ```
 
@@ -333,16 +383,26 @@ names(ptsd2) <- node_names
 
 ```{r confirm-network}
 # explore and select graph
-expl2 <- explore(ptsd2, chains = 4, cores = 4)
+expl2 <- explore(ptsd2)
 slct2 <- BGGM::select(expl2, alternative = "greater", bf_cut = 3)
+pcors_conf <- round(slct2$pcor_mat_zero, 2)
+dimnames(pcors_conf) <- list(node_names, node_names)
 
+
+
+bridge_strengths <- sort(bridge(pcors_conf, communities = comms)$`Bridge Strength`, decreasing = TRUE) 
+bridge_strength_cutoff <- quantile(bridge_strengths, 0.9)
+bridge_strengths[bridge_strengths > bridge_strength_cutoff]
+```
+
+```{r}
 # plot bridge edges
-make_adj_plot(slct2$Adj_20,
+make_adj_plot(pcors_conf,
               node_labels = node_names,
               communities = comms,
               type = "cd",
-              bridges = c("D3", "D5"),
-              fade = c("D1", "D2", "D4"),
+              bridges = c("D1", "B4"),
+              fade = NULL,
               node_size = 12) +
   ggthemes::scale_fill_few() +
   guides(fill = guide_legend(override.aes = list(size=10))) +
@@ -351,36 +411,99 @@ make_adj_plot(slct2$Adj_20,
         legend.box.background = element_blank(),
         legend.background = element_blank(),
         legend.title = element_blank()) 
-bridge(slct2$Adj_20, communities = comms)$`Bridge Strength`
+```
 
+## Varying degrees of replication
+
+```{r, hyp-var-rep}
+hyp_var_rep <- c("(B4--C1, B4--C7, B4--D3, B4--D4) > 0;
+                   B4--C1 > (B4--C7, B4--D3, B4--D4) > 0")
+
+confirm_var_rep <- confirm(ptsd2,
+                           hyp_var_rep,
+                           iter = 50000)
+confirm_var_rep
 ```
 
 
-```{r, confirm-hyp}
-hypotheses_d3 <- c("B4--D3 > C4--D3 > (C6--D3, C7--D3) > B3--D3;
-                    B4--D3 > C4--D3 > (C6--D3, C7--D3) > B3--D3 > 0")
-# hypotheses_d3 <- c("C4--D3 > (C6--D3, C7--D3) > B3--D3;
-#                    C4--D3 > (C6--D3, C7--D3) > B3--D3 > 0")
-confirm_d3 <- confirm(Y = ptsd2,
-                      hypothesis = hypotheses_d3,
-                      iter = 25000)
-summary(confirm_d3)
+## Test D1
 
-hypotheses_d5 <- c("(B2--D5, C5--D5) > B1--D5 > (C2--D5, C3--D5);
-                    (B2--D5, C5--D5) > B1--D5 > (C2--D5, C3--D5) > 0")
+```{r hyp-d1}
+# first set of bridge symptoms
+hyp_d1a <- c("(C2--D1, C6--D1) > 0;
+              (C2--D1, C6--D1) < 0;
+              (C2--D1, C6--D1) = 0")
+confirm_d1a <- confirm(ptsd2,
+                       hyp_d1a,
+                       iter = 50000)
+confirm_d1a
 
-# 0.09	0.11	0.08	0	0.08	0.11	
-
-#(b2,c5) > b1 > (c2, c3)
-confirm_d5 <- confirm(Y = ptsd2,
-                      hypothesis = hypotheses_d5,
-                      iter = 25e3)
-print(summary(confirm_d5))
+# second set of bridge symptoms
+hyp_d1b <- c("(B1--D1, B2--D1) > 0;
+              (B1--D1, B2--D1) < 0;
+              (B1--D1, B2--D1) = 0")
+confirm_d1b <- confirm(ptsd2,
+                       hyp_d1b,
+                       iter = 50000)
+confirm_d1b
 ```
 
-# Garbage
+
+## Ruling Out Bridges
+```{r hyp-rule-out}
+hyp_rule_out <- c("(B4--C6 ;
+                   (B4--C6, B4--D1, C1--D1) > 0")
+confirm_rule_out <- confirm(ptsd2,
+                            hyp_rule_out,
+                            iter = 50000)
+confirm_rule_out
+```
+
+
+
+
+<!-- Garbage -->
 
 ```{r eval=FALSE, include=FALSE}
+
+hypotheses_d1 <- c("B2--D1 > (B1--D1, C2--D1) > C6--D1;
+                    B2--D1 > (B1--D1, C2--D1) > C6--D1 > 0")
+confirm_d1 <- confirm(Y = ptsd2,
+                      hypothesis = hypotheses_d1,
+                      iter = 50000)
+confirm_d1
+
+
+hypotheses_null <- c("B4--D1 = 0;
+                     (B1--B3, D1--D4, B4--D1) = 0;
+                     (B1--B3, D1--D4) > B4--D1")
+# B2--D1 > (B1--D1, C2--D1) > C6--D1 > 0
+confirm_null <- confirm(Y = ptsd2,
+                        hypothesis = hypotheses_null,
+                        iter = 25000)
+summary(confirm_null)
+
+
+
+hypotheses_bnull <- c("(B2--D1, B1--D1, C2--D1, C6--D1, B4--C1, B4--C7, B4--D3,  B4--D4) > 
+                       (B4--D1, C1--D1, B4--C6);
+                       (B2--D1, B1--D1, C2--D1, C6--D1) > (B4--C1, B4--C7, B4--D3,  B4--D4) > 
+                       (B4--D1, C1--D1, B4--C6)")
+
+confirm_bnull <- confirm(Y = ptsd2,
+                         hypothesis = hypotheses_bnull,
+                         iter = 50000)
+summary(confirm_bnull)
+
+hyp <- c("(B2--D1, B1--D1, C6--D1, C2--D1) = (B4--C7, B4--C1, B4--D4, B4--D3);
+          (B2--D1, B1--D1, C6--D1, C2--D1) > (B4--C7, B4--C1, B4--D4, B4--D3)")
+confirm_bnull <- confirm(Y = ptsd2,
+                         hypothesis = hyp,
+                         iter = 25000)
+summary(confirm_bnull)
+
+
+
 coord_cd <- 
   data.frame(
     x = c(1, 1, 1, 1, # B
@@ -393,7 +516,7 @@ coord_cd <-
     
     node = c(paste0("B", 1:4),
              paste0("D", c(5, 3)), 
-             paste0("C", c(2,4,5:7))),
+             paste0("C", c(2,4, 5:7))),
     comm = c(rep("3", 4),
              rep("1", 2),
              rep("2", 5))
@@ -448,5 +571,60 @@ coord_cd <-
   lims(x = c(0.5, 3.8), y = c(-0.2, 8.3))  +
   ggthemes::scale_fill_few() +
   theme_facet()
-# bridge_plot
+#===============================================================
+  coord_cd <- 
+  data.frame(
+    x = c(0.7, 1, 1, 0.7, # B
+          2, 2, # D
+          3, 3.3, 3, 3.3, 3), # C
+    
+    y = c(1, 3, 5, 7,  #B
+          2, 6, #D
+          0, 2, 4, 6, 8), #C
+    
+    node = c(paste0("B", 1:4),
+             paste0("D", c(5, 3)), 
+             paste0("C", c(2,4,5:7))),
+    comm = c(rep("3", 4),
+             rep("1", 2),
+             rep("2", 5))
+    )
+
+bridge_plot <-
+  ggplot(coord_cd, aes(x, y)) +
+  # bridge cors
+  annotate(geom = "segment",
+           x = c(0.7, 1, 1, 0.7,
+                 3, 3.3, 3.3, 3, 3.3, 3),
+           xend = c(2, 2, 2, 2,
+                    2, 2, 2, 2, 2, 2),
+           y = c(1, 3, 5, 7,
+                 0, 2, 2, 4, 6, 8),
+           yend = c(2, 2, 6, 6,
+                    2, 2, 6, 2, 6, 6)) +
+  # b-cors
+  annotate(geom = "curve",
+           x = c(0.7, 0.7, 1, 1, 1),
+           xend = c(1, 1, 1, 0.7, 0.7),
+           y = c(1, 1, 3, 3, 5),
+           yend = c(3, 5, 5, 7, 7),
+           curvature = 0,
+           col = "gray70") +
+  # c-cors
+  annotate(geom = "curve",
+           x = c(3, 3.3, 3.3, 3, 3, 3.3),
+           xend = c(3, 3, 3, 3.3, 3, 3),
+           y = c(0, 2, 2, 4, 4, 6),
+           yend = c(4, 4, 8, 6, 8, 8),
+           curvature = 0,
+           col = "gray70") +
+  geom_point(size = c(rep(16, 4), rep(18, 2), rep(16, 5))) +
+  geom_point(aes(fill = comm), 
+             size = c(rep(15, 4), rep(17, 2), rep(15, 5)), 
+             shape = 21,
+             show.legend = FALSE) +
+  geom_text(aes(label = node)) +
+  lims(x = c(0.5, 3.5), y = c(-0.2, 8.3))  +
+  ggthemes::scale_fill_few() +
+  theme_facet()
 ```

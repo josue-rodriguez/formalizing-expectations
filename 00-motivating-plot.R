@@ -8,14 +8,14 @@ coords <-
   data.frame(x      = c(1, 1, 2, 2, 3, 3),
              y      = c(1, 3, 2, 4, 1, 3),
              comm   = rep(c("1", "2", "3"), each = 2),
-             labels = c("A1", "A2", "B1", "B2", "C1", "C2"))
+             labels = c("A2", "A1", "B1", "B2", "C2", "C1"))
 
 
-hyp <-  expression(italic(H)[1]*":"
-                   ~"("*bolditalic(rho)[A1]*","~bolditalic(rho)[A2]*")"
-                   ~">"
-                   ~"("*bolditalic(rho)[C1]*","~bolditalic(rho)[C2]*")"
-                   ~">"~"0")
+# hyp <- expression(italic(H)[1]*":"*
+#                    ~bolditalic(rho)[A1]*">"~bolditalic(rho)[A2]
+#                    *">"~bolditalic(rho)[C1]*">"~bolditalic(rho)[C2]
+#                    *"> 0"
+#                    )
 motivating <-
   ggplot(coords, aes(x, y)) +
     # segments
@@ -26,12 +26,12 @@ motivating <-
              yend = c(3, 2, 2, 4, 3, 1, 3)) +
     # corr labels
     annotate(geom  = "label",
-             label = c(0.23, 0.24, 0.17, 0.19),
+             label = c(0.24, 0.32, 0.19, 0.12),
              x     = c(1.5, 1.5, 2.5, 2.5),
              y     = c(1.5, 2.5, 2.5, 1.5)) +
     # bridge symptom
     annotate(geom  = "text",
-             label = "Bridge\nSymptom",
+             label = "Bridge\nNode",
              x     = 2,
              y     = 0.85) +
     # arrow
@@ -42,12 +42,12 @@ motivating <-
              y = 1.05,
              yend = 1.355) +
     # hypothesis
-    annotate(geom  = "text",
-             label = hyp,
-             parse = TRUE,
-             x     = 2,
-             y     = 0.05,
-             size  = 8)  +
+    # annotate(geom  = "text",
+    #          label = hyp,
+    #          parse = TRUE,
+    #          x     = 2,
+    #          y     = 0.05,
+    #          size  = 8)  +
     # nodes
     geom_point(size = 41) +
     geom_point(aes(fill = comm), size = 40, shape = 21) +
@@ -58,12 +58,14 @@ motivating <-
     guides(fill = FALSE) +
     theme_blank()
 
+print(motivating)
+
 ggsave(
-file   = "figs/00-motivating.pdf",
-plot   = motivating,
-dpi    = 360,
-width  = 8,
-height = 6,
-units  = "in",
-scale  = 1
+  file   = "figs/00-motivating.pdf",
+  plot   = motivating,
+  dpi    = 360,
+  width  = 8,
+  height = 6,
+  units  = "in",
+  scale  = 1
 )

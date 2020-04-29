@@ -1,15 +1,4 @@
-library(BGGM)
 
-net_data <- read.csv("bridge/data/cov-beard-depanx.csv")[, -1]
-
-sim_data <- MASS::mvrnorm(n = 1029, mu = rep(0, 16), Sigma = net_data, empirical = TRUE)
-colnames(sim_data) <- colnames(net_data)
-
-set.seed(1)
-
-split <- sample(1:1029, size = floor(1029 * .4))
-e <- explore(sim_data[split, ])
-s <- BGGM::select(e, alternative = "two.sided", BF_cut = 2)
 
 # s$Adj_10[1:9, 1:9] <- 0
 # s$Adj_10[10:16, 10:16] <- 0

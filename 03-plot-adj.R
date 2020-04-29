@@ -1,7 +1,9 @@
 library(ggnetwork)
+library(dplyr)
 
 make_adj_plot <- 
   function(adj, node_labels, communities, node_size = 10,
+           node_label_col = "black",
            bridges = NULL, fade = NULL, parcors = NULL,
            layout = "circle", type = c("cd", "ci"))
 {
@@ -48,7 +50,8 @@ make_adj_plot <-
                  size = node_size,
                  shape = 21) +
       geom_nodetext(data = adj_bridge_net,
-                    aes(label = n_labs)) +
+                    aes(label = n_labs),
+                    col = node_label_col) +
       # main network
       geom_edges(col = "gray70",
                  alpha = 0.3) +
@@ -56,7 +59,7 @@ make_adj_plot <-
       geom_nodes(aes(fill = comm),
                  size = node_size,
                  shape = 21) +
-      geom_nodetext(aes(label = n_labs)) +
+      geom_nodetext(aes(label = n_labs), col = node_label_col) +
       # # add in fade
       geom_edges(data = filter(adj_net, n_labs %in% fade),
                  col = "gray70",
@@ -73,7 +76,8 @@ make_adj_plot <-
                  alpha = 0.6) +
       geom_nodetext(data = filter(adj_net, n_labs %in% fade),
                     aes(label = n_labs),
-                    alpha = 0.6) 
+                    alpha = 0.6, 
+                    col = node_label_col) 
     
     
   } else {
@@ -121,16 +125,19 @@ make_adj_plot <-
       #               aes(label = n_labs)) +
       # main network
       geom_edges(col = "gray70",
-                 alpha = 0.3) +
+                 alpha = 0.5,
+                 linetype = "dotted") +
       geom_nodes(size = node_size + 1) +
       geom_nodes(aes(fill = comm),
                  size = node_size,
                  shape = 21) +
-      geom_nodetext(aes(label = n_labs)) +
+      geom_nodetext(aes(label = n_labs),
+                    col = node_label_col) +
       # # add in fade
       geom_edges(data = filter(adj_net, n_labs %in% fade),
                  col = "gray70",
-                 alpha = 0.1,
+                 alpha = 0.5,
+                 linetype = "dotted",
                  show.legend = FALSE) +
       geom_nodes(data = filter(adj_net, n_labs %in% fade),
                  size = node_size+1,
@@ -143,7 +150,8 @@ make_adj_plot <-
                  alpha = 0.6) +
       geom_nodetext(data = filter(adj_net, n_labs %in% fade),
                     aes(label = n_labs),
-                    alpha = 0.6) 
+                    alpha = 0.6,
+                    col = node_label_col) 
   }
   
   

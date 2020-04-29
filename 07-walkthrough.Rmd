@@ -1,0 +1,275 @@
+---
+title: "Bayesian Testing of Central Structures"
+author: "Josue Rodriguez"
+date: "4/20/2020"
+output: 
+  html_notebook:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set-up
+
+## Load necessary libraries
+```{r}
+# bayesian testing & correlation matrices
+library(BGGM)
+# to generate data
+library(MASS)
+# to calculate centrality metrics
+library(networktools)
+# to plot networks
+source("03-plot-adj.R")
+```
+
+## Necessary values
+
+```{r}
+# column names
+col_names <-
+  c(
+    # Re-experiencing
+    "Intrusive Thoughts",
+    "Nightmares",
+    "Flashbacks",
+    "Physiological/psychological reactivity",
+    # Avoidance
+    "Avoidance of thoughts",
+    "Avoidance of situations",
+    "Amnesia",
+    "Disinterest in activities",
+    "Feeling detached",
+    "Emotional numbing",
+    "Foreshortened future",
+    # Arousal
+    "Sleep problems",
+    "Irritability",
+    "Concentration problems",
+    "Hypervigilance",
+    "Startle response"
+  )
+
+# node names
+node_names <- c(
+  paste0("B", 1:4), # re-experienceing
+  paste0("C", 1:7), # avoidance
+  paste0("D", 1:5) # arousal
+)
+# community names
+comms <- c(
+  rep("Re-Experiencing", 4),
+  rep("Avoidance", 7),
+  rep("Arousal", 5)
+)
+
+# color palette
+pal <- ggthemes::few_pal()(3)
+node_cols <- c(
+  "Re-Experiencing" = pal[1],
+  "Avoidance" = pal[2],
+  "Arousal" = pal[3])
+```
+
+## Generate data
+```{r}
+set.seed(1)
+# data for exploratory analyses
+explore_ptsd <- mvrnorm(n = 965, mu = rep(0, 16), Sigma = ptsd_cor4, empirical = TRUE)
+colnames(explore_ptsd) <- col_names
+```
+
+```{r}
+set.seed(1)
+# data for confirmatory analyses
+confirm_ptsd <- mvrnorm(n = 926, mu = rep(0, 16), Sigma = ptsd_cor3, empirical = TRUE)
+colnames(confirm_ptsd) <- col_names
+```
+
+# Exploratory analyses
+
+## Estimate graph
+
+```{r}
+# sample posterior distribution
+explore_network <- explore(explore_ptsd, chains = 4, cores = 4)
+
+# determine edge set
+select_network <- select(explore_network, alternative = "greater", bf_cut = 3)
+```
+
+## Inspect Partial Correlation Matrix
+
+```{r, echo=FALSE}
+library(dplyr)
+select <- BGGM::select
+library(knitr)
+library(kableExtra)
+pnonzero <- pcors_exp %>% as.data.frame
+colnames(pnonzero) <- node_names
+rownames(pnonzero) <- node_names
+pnonzero %>% 
+  mutate(` ` = node_names) %>% 
+  dplyr::select(` `, everything()) %>% 
+  mutate_if(is.numeric, function(x){
+    cell_spec(x,
+              bold = T,
+              font_size = ifelse(x > 0, 14, 0))
+  }) %>%
+  kable(escape = FALSE, align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+plot_net <-
+  plot(select_network,
+     node_labels = node_names,
+     node_inner_size = 15,
+     layout = "circle",
+     txt_size = 5,
+     node_groups = comms,
+     palette = node_cols)$plt 
+plot_net
+```
+
+## Bridge Centrality
+```{r}
+bridge(pcors_exp, communities = comms)
+
+bridge_strengths <- bridge(pcors_exp, communities = comms)$`Bridge Strength`
+bridge_strength_cutoff <- quantile(bridge_strengths, 0.9)
+bridge_strengths[bridge_strengths > bridge_strength_cutoff]
+```
+
+## Plot bridges
+
+```{r}
+plot_cd <- 
+  make_adj_plot(slct1$Adj_20,
+              node_labels = node_names,
+              communities = comms,
+              bridges = c("D1", "B4"),
+              fade = c("D2", "D5", "B3", 
+                       "C3", "C4", "C5"),
+              node_size = 12,
+              type = "cd")  +
+  ggthemes::scale_fill_few() +
+  theme_facet() +
+  theme(legend.position = "top",
+        legend.text = element_text(size = 14),
+        legend.title = element_blank())
+
+plot_cd
+```
+
+
+```{r}
+plot_ci <-
+  make_adj_plot(slct1$Adj_01,
+              node_labels = node_names,
+              communities = comms,
+              bridges = paste0("D", 1),
+              fade = NULL,
+              type = "ci",
+              node_size = 12) +
+  ggthemes::scale_fill_few() +
+  guides(fill = guide_legend(override.aes = list(size=10))) +
+  theme_facet() +
+  theme(legend.position = "top",
+        legend.box.background = element_blank(),
+        legend.background = element_blank(),
+        legend.title = element_blank())
+plot_ci
+```
+
+
+
+# Confirmatory
+
+```{r, generate-confirm-data}
+set.seed(1)
+ptsd2 <- mvrnorm(n = 926, mu = rep(0, 16), Sigma = ptsd_cor3, empirical = TRUE)
+ptsd2 <- as.data.frame(ptsd2)
+names(ptsd2) <- node_names
+```
+
+```{r confirm-network}
+# explore and select graph
+expl2 <- explore(ptsd2)
+slct2 <- BGGM::select(expl2, alternative = "greater", bf_cut = 3)
+pcors_conf <- round(slct2$pcor_mat_zero, 2)
+dimnames(pcors_conf) <- list(node_names, node_names)
+
+
+bridge_strengths <- sort(bridge(pcors_conf, communities = comms)$`Bridge Strength`, decreasing = TRUE) 
+bridge_strength_cutoff <- quantile(bridge_strengths, 0.9)
+bridge_strengths[bridge_strengths > bridge_strength_cutoff]
+```
+
+```{r}
+# plot bridge edges
+make_adj_plot(pcors_conf,
+              node_labels = node_names,
+              communities = comms,
+              type = "cd",
+              bridges = c("D1", "B4"),
+              fade = NULL,
+              node_size = 12) +
+  ggthemes::scale_fill_few() +
+  guides(fill = guide_legend(override.aes = list(size=10))) +
+  theme_facet() +
+  theme(legend.position = "top",
+        legend.box.background = element_blank(),
+        legend.background = element_blank(),
+        legend.title = element_blank()) 
+```
+
+## Varying degrees of replication
+
+```{r, hyp-var-rep}
+hyp_var_rep <- c("(B4--C1, B4--C7, B4--D3, B4--D4) > 0;
+                   B4--C1 > (B4--C7, B4--D3, B4--D4) > 0")
+
+confirm_var_rep <- confirm(ptsd2,
+                           hyp_var_rep,
+                           iter = 50000)
+confirm_var_rep
+```
+
+
+## Test D1
+
+```{r hyp-d1}
+# first set of bridge symptoms
+hyp_d1a <- c("(C2--D1, C6--D1) > 0;
+              (C2--D1, C6--D1) < 0;
+              (C2--D1, C6--D1) = 0")
+confirm_d1a <- confirm(ptsd2,
+                       hyp_d1a,
+                       iter = 50000)
+confirm_d1a
+
+# second set of bridge symptoms
+hyp_d1b <- c("(B1--D1, B2--D1) > 0;
+              (B1--D1, B2--D1) < 0;
+              (B1--D1, B2--D1) = 0")
+confirm_d1b <- confirm(ptsd2,
+                       hyp_d1b,
+                       iter = 50000)
+confirm_d1b
+```
+
+
+## Ruling Out Bridges
+```{r hyp-rule-out}
+hyp_rule_out <- c("(B4--C6 ;
+                   (B4--C6, B4--D1, C1--D1) > 0")
+confirm_rule_out <- confirm(ptsd2,
+                            hyp_rule_out,
+                            iter = 50000)
+confirm_rule_out
+```
