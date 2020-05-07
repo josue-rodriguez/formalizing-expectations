@@ -67,16 +67,8 @@ slct1 <- BGGM::select(exp1, alternative = "greater", BF_cut = 3)
 
 ```{r explore-visual}
 # pcor_matrix
-pcors_exp <- round(slct1$pcor_mat_zero, 2)
+pcors_exp <- round(slct1$pcor_mat_zero, 4)
 dimnames(pcors_exp) <- list(node_names, node_names)
-
-
-# make_adj_plot(slct1$Adj_20,
-#               communities = comms,
-#               node_labels = node_names) +
-#   ggthemes::scale_fill_few() +A
-#   theme_blank() +
-#   theme(legend.position = "top")
 ```
 
 ## Bridge Strength
@@ -398,7 +390,7 @@ hyp_null3 <- c("D6--D8 = 0;
 
 confirm_null3 <- confirm(confirm_data,
                          hypothesis = hyp_null3,
-                         iter = 50000)s
+                         iter = 50000)
 confirm_null3
 ```
 

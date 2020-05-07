@@ -152,9 +152,8 @@ for (i in 1:2) {
          y = y_lab,
          col = linetype_lab) +
     ylim(0.4, 1) +
-    theme_bw(base_size = 14) +
-    theme(axis.text = element_text(size = 10),
-          legend.position = "top",
+    theme_bw(base_size = 20) +
+    theme(legend.position = "top",
           legend.title = element_text(size = 14),
           legend.key = element_blank(),
           panel.grid = element_line(size = 0.1,
@@ -162,7 +161,7 @@ for (i in 1:2) {
           panel.grid.minor = element_blank(),
           panel.spacing = unit(1, "lines"),
           axis.text.x = element_text(angle = 0,
-                                     size = 8,
+                                     size = 12,
                                      hjust = 0.5,
                                      vjust = 0.5),
           strip.background = element_rect(fill = "grey94"))
@@ -205,9 +204,8 @@ plots[[3]] <-
   # guides(col = guide_legend(override.aes = list(size = 2))) +
   labs(x = "N",
        y = "Posterior Model Probability") +
-  theme_bw(base_size = 14) +
-  theme(axis.text = element_text(size = 10),
-        legend.position = "top",
+  theme_bw(base_size = 20) +
+  theme(legend.position = "top",
         legend.title = element_text(size = 14),
         legend.key = element_blank(),
         panel.grid   = element_line(size = 0.1,
@@ -215,7 +213,7 @@ plots[[3]] <-
         panel.grid.minor = element_blank(),
         panel.spacing = unit(1, "lines"),
         axis.text.x=element_text(angle = 0,
-                                 size = 8,
+                                 size = 12,
                                  hjust = 0.5,
                                  vjust = 0.5),
         strip.background = element_rect(fill = "grey94"))
