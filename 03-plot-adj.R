@@ -1,5 +1,9 @@
+packages <- c("networktools", "dplyr", "network")
+if (!all(packages %in% installed.packages())) install.packages(packages)
+
 library(ggnetwork)
 library(dplyr)
+library(network)
 
 make_adj_plot <- 
   function(adj, node_labels, communities, node_size = 10,

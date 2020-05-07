@@ -23,7 +23,7 @@ library(networktools)
 library(network)
 library(ggplot2)
 
-set.seed(1)
+
 
 # column names
 col_names <-
@@ -73,6 +73,7 @@ node_cols <- c(
 ## Visual
 
 ```{r explore-visual}
+set.seed(1812)
 ptsd1 <- mvrnorm(n = 965, mu = rep(0, 16), Sigma = ptsd_cor4, empirical = TRUE)
 colnames(ptsd1) <- col_names
 
@@ -214,7 +215,7 @@ plot_d1 <-
   theme_facet()
 ```
 
-```{r plot-b4}
+```{r plot-b4, echo=FALSE}
 coord_b4 <- 
   data.frame(
     x = coord_d1$x,
@@ -451,13 +452,41 @@ confirm_d1b
 
 ## Ruling Out Bridges
 ```{r hyp-rule-out}
-hyp_rule_out <- c("(B4--C6 ;
+hyp_rule_out <- c("(B4--C6, B4--D1, C1--D1) = 0 ;
                    (B4--C6, B4--D1, C1--D1) > 0")
 confirm_rule_out <- confirm(ptsd2,
                             hyp_rule_out,
                             iter = 50000)
 confirm_rule_out
+
+confirm_rule_out <- confirm(ptsd2,
+                            hyp_rule_out,
+                            iter = 50000,
+                            prior_sd = 0.5)
+confirm_rule_out
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

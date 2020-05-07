@@ -28,19 +28,22 @@ motivating <-
     annotate(geom  = "label",
              label = c(0.24, 0.32, 0.19, 0.12),
              x     = c(1.5, 1.5, 2.5, 2.5),
-             y     = c(1.5, 2.5, 2.5, 1.5)) +
+             y     = c(1.5, 2.5, 2.5, 1.5),
+             size  = 7) +
     # bridge symptom
     annotate(geom  = "text",
              label = "Bridge\nNode",
              x     = 2,
-             y     = 0.85) +
+             y     = 0.5,
+             size  = 10) +
     # arrow
     annotate(geom = "segment",
              arrow = arrow(angle = 45, unit(0.25, "cm"), type = "open"),
              x = 2,
              xend = 2,
-             y = 1.05,
-             yend = 1.355) +
+             y = 1,
+             yend = 1.3,
+             size = 1.2) +
     # hypothesis
     # annotate(geom  = "text",
     #          label = hyp,

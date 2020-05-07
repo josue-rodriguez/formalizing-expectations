@@ -1,3 +1,68 @@
+# constraints_plot_data %>% 
+#   filter(hypothesis == "H1") %>% 
+#   ggplot(aes(n, mean_pmp)) +
+#   geom_line(aes(group = const), size = 2.5) +
+#   geom_line(aes(col = const), size = 1.5) +
+#   # geom_ribbon(aes(ymin = mean_pmp - sd(mean_pmp), 
+#   #                 ymax = mean_pmp + sd(mean_pmp), 
+#   #                 fill = const),
+#   #             alpha = 0.2) +
+#   facet_wrap(~ sd, labeller = labeller(sd = label_parsed)) +
+#   scale_x_continuous(breaks = seq(100, 1500, length.out = 5)) +
+#   scale_colour_manual(values = pal, 
+#                       name = "") +
+#   # scale_linetype_manual(values = c("solid", "longdash", "dotted")) +
+#   # scale_linetype_manual(values = c(1, 2, 6)) +
+#   # guides(col = guide_legend(override.aes = list(size = 1)),
+#   #        linetype = guide_legend(override.aes = list(size = 0.4))) +
+#   labs(x = "Sample Size",
+#        y = y_lab) +
+#   ylim(0, 1) + 
+#   theme_bw(base_size = 14) +
+#   theme(axis.text = element_text(size = 10),
+#         legend.position = "top",
+#         legend.title = element_text(size = 14),
+#         legend.key = element_blank(),
+#         panel.grid = element_line(size = 0.1,
+#                                   color = "grey97"),
+#         panel.grid.minor = element_blank(),
+#         panel.spacing = unit(1, "lines"),
+#         axis.text.x = element_text(angle = 0,
+#                                    size = 8,
+#                                    hjust = 0.5,
+#                                    vjust = 0.5),
+#         strip.background = element_rect(fill = "grey94"))
+# constraints_plot_data %>% 
+#   ggplot(aes(n, mean_pmp)) +
+#   geom_line(aes(col = hypothesis, linetype = const), size = 1) +
+#   # geom_ribbon(aes(fill = hypothesis, ymin = pmp-scl, ymax = pmp+scl), alpha = 0.5) +
+#   facet_wrap(~ sd, labeller = labeller(sd = label_parsed)) +
+#   scale_x_continuous(breaks = seq(100, 1500, length.out = 5)) +
+#   scale_colour_manual(values = pal, 
+#                       name = "") +
+#   scale_linetype_manual(values = c("solid", "longdash", "dotted")) +
+#   # scale_linetype_manual(values = c(1, 2, 6)) +
+#   guides(col = guide_legend(override.aes = list(size = 1)),
+#          linetype = guide_legend(override.aes = list(size = 0.4))) +
+#   labs(x = "Sample Size",
+#        y = y_lab,
+#        linetype = linetype_lab) +
+#   ylim(0, 1) + 
+#   theme_bw(base_size = 14) +
+#   theme(axis.text = element_text(size = 10),
+#         legend.position = "top",
+#         legend.title = element_text(size = 14),
+#         legend.key = element_blank(),
+#         panel.grid = element_line(size = 0.1,
+#                                   color = "grey97"),
+#         panel.grid.minor = element_blank(),
+#         panel.spacing = unit(1, "lines"),
+#         axis.text.x = element_text(angle = 0,
+#                                    size = 8,
+#                                    hjust = 0.5,
+#                                    vjust = 0.5),
+#         strip.background = element_rect(fill = "grey94"))
+#===================================================================
 #===============
 # Set up
 #===============
@@ -31,7 +96,7 @@ tidy_constraints <-
 strip_labs <- c(expression(delta*" = 15"),
                 expression(delta*" = 3"))
 linetype_lab <- expression("Pr("*bolditalic(rho) %in% bold(Omega)~"|"~italic(H)[1]*")")
-y_lab <- expression("p("*italic(H)[1]*"|"*bold(Y)*")")
+y_lab <- expression(italic(p)*"("*italic(H)[1]*"|"*bold(Y)*")")
 
 
 
@@ -44,16 +109,21 @@ constraints_plot_data <-
                values_to = "pmp",
                names_prefix = "pmp") %>% 
   group_by(sd, const, hypothesis, n) %>% 
-  summarise(mean_pmp = mean(pmp)) %>% 
+  summarise(mean_pmp = mean(pmp),
+            scl = sd(pmp),
+            ub = mean_pmp + scl,
+            lb = mean_pmp - scl) %>% 
   ungroup %>%  
   mutate(hypothesis = recode(hypothesis, "1" = "H1", "2" = "H2", "3" = "H3"),
          const = factor(const),
          # prior proportions in agreement with unconstrained [.04, .008, .001]
+         # const = recode(const, "1" = ".04", "2" = ".008", "3" = ".001"),
          const = recode(const, "1" = ".04", "2" = ".008", "3" = ".001"),
          sd = factor(sd, labels = strip_labs))
 
 # set color palette
-pal <- colorblind_pal()(8)[2:4]
+# pal <- colorblind_pal()(8)[6:8]
+pal <- c("#117733", "#44AA99", "#88CCEE")
 
 # plot results
 plots <- list()
@@ -62,38 +132,41 @@ for (i in 1:2) {
   # mask for filtering by std. devs
   mask <- levels(constraints_plot_data$sd)
   plots[[i]] <- 
-    constraints_plot_data %>% 
-    filter(sd == mask[i]) %>% 
+  constraints_plot_data %>%
+    filter(sd == mask[i], hypothesis == "H1") %>% 
     ggplot(aes(n, mean_pmp)) +
-    geom_line(aes(col = hypothesis, linetype = const), size = 1) +
-    # geom_ribbon(aes(fill = hypothesis, ymin = pmp-scl, ymax = pmp+scl), alpha = 0.5) +
+    geom_line(aes(col = const), size = 1, alpha = 0.75) +
+    # geom_ribbon(aes(fill = const, ymin = lb, ymax = ub), alpha = 0.5) +
+    # geom_line(aes(y = ub, group = const)) +
     facet_wrap(~ sd, labeller = labeller(sd = label_parsed)) +
     scale_x_continuous(breaks = seq(100, 1500, length.out = 5)) +
-    scale_colour_manual(values = pal, 
-                        name = "",
-                        labels = c(expression(italic(H)[1]*" vs."*italic(H)[2]), 
-                                   expression(italic(H)[1]*" vs. "*italic(H)[3]))) +
-    scale_linetype_manual(values = c("solid", "longdash", "dotted")) +
+    scale_colour_manual(values = pal,
+                        name = "") +
+    scale_fill_manual(values = pal,
+                      name = "") +
+    # scale_linetype_manual(values = c("solid", "longdash", "dotted")) +
     # scale_linetype_manual(values = c(1, 2, 6)) +
-    guides(col = guide_legend(override.aes = list(size = 1)),
-           linetype = guide_legend(override.aes = list(size = 0.4))) +
+    guides(
+      col = guide_legend(override.aes = list(size = 1, alpha = 1))
+      # linetype = guide_legend(override.aes = list(size = 0.4))
+           ) +
     labs(x = "Sample Size",
          y = y_lab,
-         linetype = linetype_lab) +
-    ylim(0, 1) + 
+         col = linetype_lab) +
+    ylim(0.4, 1) +
     theme_bw(base_size = 14) +
     theme(axis.text = element_text(size = 10),
           legend.position = "top",
           legend.title = element_text(size = 14),
           legend.key = element_blank(),
           panel.grid = element_line(size = 0.1,
-                                      color = "grey97"),
+                                    color = "grey97"),
           panel.grid.minor = element_blank(),
           panel.spacing = unit(1, "lines"),
           axis.text.x = element_text(angle = 0,
-                                   size = 8,
-                                   hjust = 0.5,
-                                   vjust = 0.5),
+                                     size = 8,
+                                     hjust = 0.5,
+                                     vjust = 0.5),
           strip.background = element_rect(fill = "grey94"))
 }
 
@@ -109,8 +182,9 @@ tidy_sd <-
   select(-X)
 
 # deltas 
-deltas <- BGGM:::delta_solve(c(0.2, 0.3, 0.4, 0.5)) # 15, 3
-    
+# deltas <- BGGM:::delta_solve(c(0.2, 0.3, 0.4, 0.5)) # 15, 3
+deltas <- BGGM:::delta_solve(c(0.1, 0.25, 0.4, 0.5)) # 15, 3
+
 # compute summary statistics and clean factor levels
 sd_plot_data <-   
   tidy_sd %>% 
@@ -120,7 +194,7 @@ sd_plot_data <-
   summarise(mean_pmp = mean(pmp)) %>% 
   mutate(sd = factor(sd),
          dummy = factor("1", labels = expression(italic(H)[1])))
-pal <- colorblind_pal()(8)[-c(2:4)]
+# pal <- colorblind_pal()(8)[-c(2:4)]
 
 # plot results
 plots[[3]] <- 
@@ -166,6 +240,7 @@ sim_1_results <-
     plots[[2]] + theme(legend.position = "none") + ylab(""),
     ncol = 2
   ) 
+
 panel_a <- 
   plot_grid(
     sim_1_legend,
@@ -205,23 +280,24 @@ sim_results_plot <-
     nrow = 2,
     rel_heights = c(1, 10)
   ) +
-    draw_label("A",
-               x = 0.025,
-               y = 0.95,
-               size = 35) +
-    draw_label("B",
-               x = 0.71,
-               y = 0.95,
-               size = 35)
+  draw_label("A",
+             x = 0.025,
+             y = 0.95,
+             size = 35) +
+  draw_label("B",
+             x = 0.71,
+             y = 0.95,
+             size = 35)
 
 sim_results_plot
 
 # save
 ggsave(
-  "figs/03-plot-sims.pdf",
+  "figs/03-plot-sims3.pdf",
   sim_results_plot,
   width =  12,
   height = 5.5,
   units = "in",
   dpi = 320
 )
+

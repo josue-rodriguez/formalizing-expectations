@@ -3,33 +3,64 @@ title: "Bayesian Testing of Central Structures"
 author: "Josue Rodriguez"
 date: "4/20/2020"
 output: 
-  html_notebook:
+  html_document:
     toc: true
     toc_float: true
-    toc_depth: 3
+    toc_depth: 4
+bibliography: references.bib
+link-citations: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
 ```
 
-# Set-up
 
-## Load necessary libraries
+# Introduction
+
+This tutorial is demonstrates how to use networks (specifically Gaussian graphical models or GGMs) to 
+
+1. Generate hypotheses
+2. Perform confirmatory tests on the generated hypotheses
+
+In psychology, network models are almost never used to generate hypotheses. This is puzzling because one of the original reasons researchers began using them was exactly this. Networks are also thought of highly exploratory tools, despite their potential for confirmatory tests. However, there is plenty of room for networks in this respect. These ideas are expanded upon in our recent paper,"On Formalizing Theoretical Expectations: Bayesian Testing of Central Structures in Pyschological Networks", where we merge exploratory and confirmatory hypotheses into a cohesive framework based on Bayesian hypothesis testing. You find a preprint [here](https://psyarxiv.com).
+
+
+In what follows, I will describe how you can use GGMs  in `R` to perform confirmatory hypothesis tests bases on an initial, exploratoy hypotheses. For clarity, some code chunks have been omitted, but the full code to reproduce this document is available on the [OSF](https://osf.io/bh783) or [GitHub](https://github.com).
+
+# Examples
+
+
+## PTSD Network
+
+To begin we need several packages:
+
+* `BGGM`: to conduct exploratory and confirmatory analyses with GGMs
+* `MASS`: to generate data from covariance matrices
+* `networktools`: to calculate bridge centrality statistics
+* `ggnetworks`: used for plotting
+
+I also load a function `make_adj_plot` stored in `03-plot-adj.R`. This function is used to produce plots of the conditional (in)dependence matrices (Panels A & B in Figures 3 and 4 of the paper).
+
+
 ```{r}
-# bayesian testing & correlation matrices
-library(BGGM)
-# to generate data
-library(MASS)
-# to calculate centrality metrics
-library(networktools)
-# to plot networks
+# Uncomment and run  if missing packages
+
+# for latest version of BGGM
+# remotes::install_github('donaldrwilliams/BGGM') 
+
+# packages <- c("BGGM", "MASS", "networktools")
+# if (!packages %in% installed.packages()) install.packages(packages)
+```
+
+```{r message=FALSE, warning=FALSE}
 source("03-plot-adj.R")
+library(MASS)
+library(networktools)
+library(BGGM)
 ```
 
-## Necessary values
-
-```{r}
+```{r include=FALSE}
 # column names
 col_names <-
   c(
@@ -75,88 +106,95 @@ node_cols <- c(
   "Arousal" = pal[3])
 ```
 
-## Generate data
+
+The first dataset contains measurements on 16 PTSD symptoms in 3 communities, "Re-experiencing", "Avoidance", and "Arousal". Only the covariance matrices are available so we have to generate the data using `MASS`. The data,`ptsd_cor4`, is loaded when we load `BGGM`.
+
 ```{r}
-set.seed(1)
+set.seed(1812)
 # data for exploratory analyses
 explore_ptsd <- mvrnorm(n = 965, mu = rep(0, 16), Sigma = ptsd_cor4, empirical = TRUE)
-colnames(explore_ptsd) <- col_names
+colnames(explore_ptsd) <- node_names
+head(explore_ptsd)
 ```
 
-```{r}
-set.seed(1)
-# data for confirmatory analyses
-confirm_ptsd <- mvrnorm(n = 926, mu = rep(0, 16), Sigma = ptsd_cor3, empirical = TRUE)
-colnames(confirm_ptsd) <- col_names
-```
 
-# Exploratory analyses
 
-## Estimate graph
+### Exploratory analysis
+
+#### Estimate graph
+
+Our approach begins by estimating an exploratory network. With `BGGM`, this requires calling the `explore` function to obtain and sample the posterior distribution. These results are saved in `explore_network`. The `select` function takes the results from an `explore` call, and is used to determine the edge set for $\mathbf{A}^{CD}$ and $\mathbf{A}^{CI}$ --- the conditional (in)dependence structures.
+
+Note that we formally incorporate a one-sided hypothesis test. $\mathcal{H}_0: \rho_{ij} = 0$ versus $\mathcal{H}_1: \rho_{ij} > 0$ by setting `alternative = "greater"` to determine the edge set. This formally includes the expectation of a "positive manifold", or that the edges should all be positive. 
 
 ```{r}
 # sample posterior distribution
 explore_network <- explore(explore_ptsd, chains = 4, cores = 4)
 
 # determine edge set
-select_network <- select(explore_network, alternative = "greater", bf_cut = 3)
+selected_network <- select(explore_network, alternative = "greater", bf_cut = 3)
 ```
 
-## Inspect Partial Correlation Matrix
 
-```{r, echo=FALSE}
-library(dplyr)
-select <- BGGM::select
-library(knitr)
-library(kableExtra)
-pnonzero <- pcors_exp %>% as.data.frame
-colnames(pnonzero) <- node_names
-rownames(pnonzero) <- node_names
-pnonzero %>% 
-  mutate(` ` = node_names) %>% 
-  dplyr::select(` `, everything()) %>% 
-  mutate_if(is.numeric, function(x){
-    cell_spec(x,
-              bold = T,
-              font_size = ifelse(x > 0, 14, 0))
-  }) %>%
-  kable(escape = FALSE, align = "c") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+We can visualize the conditional (in)dependence structures by simply calling `plot`. By default, this returns three plots, but we focus on the first two.
+
+```{r warning=FALSE}
+plots <- 
+  plot(selected_network,
+     node_labels = node_names, # vector storing node names
+     communities = comms, # vector of community name for each node
+     node_size = 12)
+
+plots$plt_alt +
+  ggtitle("Conditional Dependence Structure")
+
+plots$plt_null +
+  ggtitle("Conditional Independence Structure")
 ```
+
+
+
+#### Bridge Centrality
+
+We then proceed to calculate bridge strength using the `networktools` package [see @jonesBridge2019]. This is similar to node strength, in that, for a given node, it is the sum of the absolute values of its edges. However, bridge strength only takes into account edges that connect a node to different communities, or clusters. Thus, it is a measure of inter-community connectivity, and we use it here to identify central structures in a network. 
 
 ```{r}
-plot_net <-
-  plot(select_network,
-     node_labels = node_names,
-     node_inner_size = 15,
-     layout = "circle",
-     txt_size = 5,
-     node_groups = comms,
-     palette = node_cols)$plt 
-plot_net
-```
+# extract partial correlations from selected network
+partial_cors <- selected_network$pcor_mat_zero
 
-## Bridge Centrality
-```{r}
-bridge(pcors_exp, communities = comms)
+# rename columns with node names
+colnames(partial_cors) <- node_names
 
-bridge_strengths <- bridge(pcors_exp, communities = comms)$`Bridge Strength`
+
+# calculate bridge strength. comms is a vector specifying 
+# the community for each node
+bridge_strengths <- bridge(partial_cors, communities = comms)$`Bridge Strength`
+
+# we use the top 10% in bridge strength as bridge nodes
 bridge_strength_cutoff <- quantile(bridge_strengths, 0.9)
+
 bridge_strengths[bridge_strengths > bridge_strength_cutoff]
 ```
 
-## Plot bridges
+Calculating bridge strength indicates that nodes B4 and D1 are the top bridge nodes.
+
+#### Plot bridges
+
+
+A key idea in our paper was that highlighting and "zooming" in on central structures allows researchers to easily formulate hypotheses. 
+
+We can highlight the the bridge nodes by using `make_adj_plot`.  
 
 ```{r}
 plot_cd <- 
-  make_adj_plot(slct1$Adj_20,
-              node_labels = node_names,
+  make_adj_plot(selected_network$Adj_20, # conditional dependence structure
+              node_labels = node_names, # vector storing node names
               communities = comms,
-              bridges = c("D1", "B4"),
-              fade = c("D2", "D5", "B3", 
+              bridges = c("D1", "B4"), # name of nodes to highlights
+              fade = c("D2", "D5", "B3", # name of nodes to fade
                        "C3", "C4", "C5"),
               node_size = 12,
-              type = "cd")  +
+              type = "cd")  + # type = "cd" for conditional dependence. "ci" for conditional
   ggthemes::scale_fill_few() +
   theme_facet() +
   theme(legend.position = "top",
@@ -166,15 +204,16 @@ plot_cd <-
 plot_cd
 ```
 
+We can use the same function to plot the conditional independence structures in panel B of both Figures 3 and 4. 
 
 ```{r}
 plot_ci <-
-  make_adj_plot(slct1$Adj_01,
+  make_adj_plot(selected_network$Adj_02,
               node_labels = node_names,
               communities = comms,
               bridges = paste0("D", 1),
               fade = NULL,
-              type = "ci",
+              type = "ci", # type = "ci" for conditional independence
               node_size = 12) +
   ggthemes::scale_fill_few() +
   guides(fill = guide_legend(override.aes = list(size=10))) +
@@ -188,88 +227,201 @@ plot_ci
 
 
 
-# Confirmatory
+We did not find an easy way to "zoom in" on the neighborhood of bridge edges for the bridge nodes (ottom panels in Figures 3 and 4), but here this the code we used to plot node D1.
 
-```{r, generate-confirm-data}
-set.seed(1)
-ptsd2 <- mvrnorm(n = 926, mu = rep(0, 16), Sigma = ptsd_cor3, empirical = TRUE)
-ptsd2 <- as.data.frame(ptsd2)
-names(ptsd2) <- node_names
+```{r plot-d1}
+coord_d1 <- 
+  data.frame(
+    x = c(1, 0, 1, 2, 3, 4, 3),
+    y = c(1, 2, 3, 2, 1, 2, 3),
+    comm = c("3",  "3",  "3",  "1",  "2",  "2",  "2"),
+    node = c("B1", "B4", "B2", "D1", "C6", "C1", "C2")
+    )
+    
+
+plot_d1 <-
+  ggplot(coord_d1, aes(x, y)) +
+  # bridge cors
+  annotate(geom = "segment",
+           x = rep(2, 4),
+           xend = c(1, 1, 3, 3),
+           y = rep(2, 4),
+           yend = c(1, 3, 1, 3),
+           linetype = "dashed",
+           size = 1) +
+  # independent
+  annotate(geom = "segment",
+           x = c(2, 2),
+           xend = c(0, 4),
+           y = c(2, 2),
+           yend = c(2, 2),
+           linetype = "dotted",
+           col = "gray70") +
+  # B nodes
+  annotate(geom = "segment",
+           x = c(1, 1, 0),
+           xend = c(0, 1, 1),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(3, 1, 1),
+           col = "gray70") +
+  # C nodes
+  annotate(geom = "segment",
+           x = c(3, 3, 4),
+           xend = c(4, 3, 3),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(1, 3, 3),
+           col = "gray70") +
+  # bridge cor labels
+  annotate(geom = "label",
+           label = c(0.11, 0.31, 0.08, 0.15),
+           x = c(1.5, 1.5, 2.5, 2.5),
+           y = c(1.5, 2.5, 1.5, 2.5)) +
+  geom_point(size = 21) +
+  geom_point(aes(fill = comm), 
+             size = 20, 
+             shape = 21,
+             show.legend = FALSE) +
+  geom_text(aes(label = node)) +
+  lims(x = c(-0.1, 4.1), y = c(0.9, 3.1))  +
+  ggthemes::scale_fill_few() +
+  theme_facet()
+
+plot_d1
 ```
 
-```{r confirm-network}
-# explore and select graph
-expl2 <- explore(ptsd2)
-slct2 <- BGGM::select(expl2, alternative = "greater", bf_cut = 3)
-pcors_conf <- round(slct2$pcor_mat_zero, 2)
-dimnames(pcors_conf) <- list(node_names, node_names)
+For completeness, here I have included the neighborhood for node B4.
 
+```{r plot-b4, echo=FALSE}
+coord_b4 <- 
+  data.frame(
+    x = coord_d1$x,
+    y = coord_d1$y,
+    comm = c("2", "2", "2", "3", "1", "1", "1"),
+    node = c("C7", "C6", "C1", "B4", "D4", "D1", "D3")
+    )
+    
 
-bridge_strengths <- sort(bridge(pcors_conf, communities = comms)$`Bridge Strength`, decreasing = TRUE) 
-bridge_strength_cutoff <- quantile(bridge_strengths, 0.9)
-bridge_strengths[bridge_strengths > bridge_strength_cutoff]
+plot_b4 <-
+  ggplot(coord_b4, aes(x, y)) +
+  # bridge cors
+  annotate(geom = "segment",
+           x = rep(2, 4),
+           xend = c(1, 1, 3, 3),
+           y = rep(2, 4),
+           yend = c(1, 3, 1, 3),
+           size = 1) +
+  # independent
+  annotate(geom = "segment",
+           x = c(2, 2),
+           xend = c(0, 4),
+           y = c(2, 2),
+           yend = c(2, 2),
+           linetype = "dotted",
+           col = "gray70") +
+  # C nodes
+  annotate(geom = "segment",
+           x = c(1, 1, 0),
+           xend = c(0, 1, 1),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(3, 3, 1),
+           col = "gray70") +
+  # D nodes
+  annotate(geom = "segment",
+           x = c(3, 3, 4),
+           xend = c(4, 3, 3),
+           y = c(1, 1, 2),
+           yend = c(2, 3, 3),
+           linetype = c(1, 1, 3),
+           col = "gray70") +
+  # bridge cor labels
+  annotate(geom = "label",
+           label = c(0.11, 0.21, 0.07, 0.14),
+           x = c(1.5, 1.5, 2.5, 2.5),
+           y = c(1.5, 2.5, 1.5, 2.5)) +
+  geom_point(size = 21) +
+  geom_point(aes(fill = comm), 
+             size = 20, 
+             shape = 21,
+             show.legend = FALSE) +
+  geom_text(aes(label = node)) +
+  lims(x = c(-0.1, 4.1), y = c(0.9, 3.1))  +
+  ggthemes::scale_fill_few() +
+  theme_facet()
+
+print(plot_b4)
 ```
+
+
+
+### Confirmatory analysis
+
+With the central structures identified and plotted, we can move on to formulating and testing hypotheses. 
+
+Note that we generate another dataset here so that we test our hypotheses on different data than our exploratory analysis.
 
 ```{r}
-# plot bridge edges
-make_adj_plot(pcors_conf,
-              node_labels = node_names,
-              communities = comms,
-              type = "cd",
-              bridges = c("D1", "B4"),
-              fade = NULL,
-              node_size = 12) +
-  ggthemes::scale_fill_few() +
-  guides(fill = guide_legend(override.aes = list(size=10))) +
-  theme_facet() +
-  theme(legend.position = "top",
-        legend.box.background = element_blank(),
-        legend.background = element_blank(),
-        legend.title = element_blank()) 
+set.seed(1)
+# data for confirmatory analyses
+confirm_ptsd <- mvrnorm(n = 926, mu = rep(0, 16), Sigma = ptsd_cor3, empirical = TRUE)
+colnames(confirm_ptsd) <- node_names
 ```
 
-## Varying degrees of replication
 
-```{r, hyp-var-rep}
+#### Varying degrees of replication
+We first focus on node B4 and test the following hypotheses
+\begin{align}
+    \mathcal{H}_1&: (\rho_{B4-C1}, \rho_{B4-C7}, \rho_{B4-D3},  \rho_{B4-D4}) > 0 \\ \nonumber
+    \mathcal{H}_2&: \rho_{B4-C1} > (\rho_{B4-C7}, \rho_{B4-D3}, \rho_{B4-D4}) > 0 \\ \nonumber
+    \mathcal{H}_3 &: ``\text{not}\; \mathcal{H}_1 \; \text{or}\; \mathcal{H}_2  \text{.''}
+\end{align}
+
+Above, $\mathcal{H}_1$ is testing for replication of all edges but is otherwise agnostic towards the interplay among bridge relations. $\mathcal{H}_2$ then provides a refined view into the bridge neighborhood by testing an additional constraint that the strongest edge replicated. That is, all of the bridge relations \emph{and} the strongest edge re-emerged in an independent dataset. Furthermore, $\mathcal{H}_1$ and $\mathcal{H}_2$ both reflect a positive manifold. We also included $\mathcal{H}_3$ which accounts for structures that are not $\mathcal{H}_1$ or $\mathcal{H}_2$.
+
+
+To test these hypotheses, we can formulate them in a single string and use the `confirm` function. Note that hypotheses are separated by a semicolon, and that partial correlations are denoted as `node1 -- node2`. The output can be obtained by simply printing out the resuls of `confirm`.
+
+
+```{r, hyp-var-rep, message=FALSE}
 hyp_var_rep <- c("(B4--C1, B4--C7, B4--D3, B4--D4) > 0;
                    B4--C1 > (B4--C7, B4--D3, B4--D4) > 0")
 
-confirm_var_rep <- confirm(ptsd2,
+confirm_var_rep <- confirm(confirm_ptsd,
                            hyp_var_rep,
                            iter = 50000)
 confirm_var_rep
 ```
+The output includes both the posterior probabilities and all the Bayes factors. The Bayes factors are in reference to the rows relative to the columns. For example the element in the 2nd row and 1st column would be interpreted as BF$_{21} = 4.05$
 
+In this case, $\mathcal{H}_2$ is the preferred hypothesis, that is, all of the bridge edges and the strongest edge replicated.  This gets at an important notion. It is possible to test __varying degrees of replication__.
 
-## Test D1
+<!-- This analysis also indicates that (1) the bridge relations replicated in an independent dataset; and (2) the relation between ``sleep problems'' (node B4) and ``avoidance of thoughts'' (node C1) \emph{could} be the strongest bridge between the Re-experiencing and Avoidance communities. -->
 
-```{r hyp-d1}
-# first set of bridge symptoms
-hyp_d1a <- c("(C2--D1, C6--D1) > 0;
-              (C2--D1, C6--D1) < 0;
-              (C2--D1, C6--D1) = 0")
-confirm_d1a <- confirm(ptsd2,
-                       hyp_d1a,
-                       iter = 50000)
-confirm_d1a
+## Comorbidity Network
 
-# second set of bridge symptoms
-hyp_d1b <- c("(B1--D1, B2--D1) > 0;
-              (B1--D1, B2--D1) < 0;
-              (B1--D1, B2--D1) = 0")
-confirm_d1b <- confirm(ptsd2,
-                       hyp_d1b,
-                       iter = 50000)
-confirm_d1b
-```
+We also examined a comorbity network containing 16 symptoms
 
+### Exploratory analysis
 
-## Ruling Out Bridges
-```{r hyp-rule-out}
-hyp_rule_out <- c("(B4--C6 ;
-                   (B4--C6, B4--D1, C1--D1) > 0")
-confirm_rule_out <- confirm(ptsd2,
-                            hyp_rule_out,
-                            iter = 50000)
-confirm_rule_out
-```
+### Confirmatory analysis
+
+#### Intra- and Inter-Bridge Sets
+
+\begin{align}
+\label{eq:intra-inter}
+    \mathcal{H}_1 &: \rho_{D8-A5} = \rho_{D8-A7} > (\rho_{D6-A3}, \rho_{D6-A6}) > 0 \\ \nonumber
+    \mathcal{H}_2 &: \rho_{D8-A5} > \rho_{D8-A7} > \rho_{D6-A3} > \rho_{D6-A6} > 0 \\ \nonumber
+    \mathcal{H}_3 &: ``\text{not}\; \mathcal{H}_1 \; \text{or}\; \mathcal{H}_2 \text{.''}
+\end{align}
+
+#### Bridge Set Separation
+
+\begin{align}
+    \mathcal{H}_1 &: (\rho_{D8-A3}, \rho_{D8-A6}) = 0 \\ \nonumber
+    \mathcal{H}_2 &: (\rho_{D8-A3}, \rho_{D8-A6})  > 0 \\ \nonumber
+    \mathcal{H}_3 &: ``\text{not}\; \mathcal{H}_1 \; \text{or} \; \mathcal{H}_2 \text{.''}
+\end{align}
+
+## References

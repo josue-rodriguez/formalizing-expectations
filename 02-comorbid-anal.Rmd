@@ -57,7 +57,7 @@ pal <-  ggthemes::colorblind_pal()(8)[c(4, 6)]
 
 split <- sample(1:1029, size = floor(1029 * .5))
 
-exp1 <- explore(sim_data[split, ])
+exp1 <- explore(sim_data[split, ], prior_sd = 0.25)
 slct1 <- BGGM::select(exp1, alternative = "greater", BF_cut = 3)
 ```
 
