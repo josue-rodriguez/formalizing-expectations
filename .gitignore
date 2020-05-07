@@ -35,4 +35,6 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
-.bib
+*.bib
+
+/99-misc/
