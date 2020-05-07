@@ -35,5 +35,6 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
-*.bib
+references.bib
 99-misc/
+MAYDAY.R
