@@ -36,5 +36,4 @@ vignettes/*.pdf
 *.knit.md
 
 *.bib
-
-/99-misc/
+99-misc/

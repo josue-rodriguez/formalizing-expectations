@@ -227,7 +227,7 @@ plot_ci
 
 
 
-We did not find an easy way to "zoom in" on the neighborhood of bridge edges for the bridge nodes (ottom panels in Figures 3 and 4), but here this the code we used to plot node D1.
+We did not find an easy way to "zoom in" on the neighborhood of bridge edges for the bridge nodes (bottom panels in Figures 3 and 4), but here this the code we used to plot node D1.
 
 ```{r plot-d1}
 coord_d1 <- 
@@ -401,7 +401,7 @@ In this case, $\mathcal{H}_2$ is the preferred hypothesis, that is, all of the b
 
 ## Comorbidity Network
 
-We also examined a comorbity network containing 16 symptoms
+We also examined a comorbity network containing 16 symptoms of anxiety and depression. 
 
 ### Exploratory analysis
 
