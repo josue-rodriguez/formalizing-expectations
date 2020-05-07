@@ -35,6 +35,6 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
-references.bib
+*.bib
 99-misc/
 MAYDAY.R
