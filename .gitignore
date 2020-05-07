@@ -38,3 +38,4 @@ vignettes/*.pdf
 *.bib
 99-misc/
 MAYDAY.R
+.Rproj.user

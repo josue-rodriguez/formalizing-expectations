@@ -72,11 +72,9 @@ library(tidyr)
 library(ggthemes)
 library(ggpubr)
 library(cowplot)
-setwd("C:/Users/josue/Box/bridge")
-# setwd("C:/Users/jer421/Box/bridge")
 
-sim_constraints <- read.csv("data/02-sim-constraints2.csv")
-sim_sd <- read.csv("data/03-sim-sd2.csv")
+sim_constraints <- read.csv("05-data/01-sim-constraints.csv")
+sim_sd <- read.csv("05-data/02-sim-sd.csv")
 
 #============================
 # Plot Constraint Simulation
@@ -293,7 +291,7 @@ sim_results_plot
 
 # save
 ggsave(
-  "figs/03-plot-sims3.pdf",
+  "06-figs/03-plot-sims.pdf",
   sim_results_plot,
   width =  12,
   height = 5.5,

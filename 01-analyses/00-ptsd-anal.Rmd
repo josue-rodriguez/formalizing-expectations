@@ -118,7 +118,7 @@ bridge_strengths[bridge_strengths > bridge_strength_cutoff]
 
 ## Plots
 ```{r adj_plots, include=FALSE, fig.height=6, fig.width=8}
-source("03-plot-adj.R")
+source("02-plot-adj.R")
 plot_cd <- 
   make_adj_plot(slct1$Adj_20,
               node_labels = node_names,
@@ -363,8 +363,9 @@ all_plots <-
 print(all_plots)
 ```
 
+
 ```{r save-ptsd-plot, include=FALSE, eval=FALSE}
-ggsave("figs/01-plot-ptsd.pdf",
+ggsave("../06-figs/01-plot-ptsd.pdf",
        plot = all_plots,
        dpi = 320,
        height = 4 * 3,

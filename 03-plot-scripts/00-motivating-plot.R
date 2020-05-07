@@ -1,5 +1,3 @@
-setwd("C:/Users/josue/Box/bridge")
-
 library(ggplot2)
 library(ggnetwork)
 
@@ -64,7 +62,7 @@ motivating <-
 print(motivating)
 
 ggsave(
-  file   = "figs/00-motivating.pdf",
+  file   = "06-figs/00-motivating.pdf",
   plot   = motivating,
   dpi    = 360,
   width  = 8,

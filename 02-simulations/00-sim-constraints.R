@@ -143,7 +143,7 @@ stopCluster(cl)
 # --------------- end  ------------------- |
 
 
-write.csv(results, "C:/Users/jer421/Box/bridge/data/02-sim-constraints2.csv")
+write.csv(results, "05-data/01-sim-constraints.csv")
 t1 <- Sys.time() - t0
 print(t1) # Time difference of 11.1079 hours
           # second time difference of 59.70749 mins

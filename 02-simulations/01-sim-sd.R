@@ -96,23 +96,19 @@ stopCluster(cl)
 # --------------- end  ------------------- |
 
 
-write.csv(results, "C:/Users/jer421/Box/bridge/data/03-sim-sd2.csv")
+write.csv(results, "05-data/02-sim-sd.csv")
 t1 <- Sys.time() - t0
 print(t1)
 
-library(dplyr)
-library(ggplot2)
-results %>%
-  as_tibble %>%
-  rename(pmp = h12) %>%
-  mutate(sd = factor(sd)) %>%
-  group_by(n, sd) %>%
-  summarise(mu = mean(pmp)) %>%
-  ggplot(aes(n, mu)) +
-  geom_line(aes(col = sd)) +
-  scale_color_discrete() +
-  theme_bw()
-
-
-# tst <- sim_function(100, k, hypothesis, 0.24)
-# tst$post_prob
+# library(dplyr)
+# library(ggplot2)
+# results %>%
+#   as_tibble %>%
+#   rename(pmp = h12) %>%
+#   mutate(sd = factor(sd)) %>%
+#   group_by(n, sd) %>%
+#   summarise(mu = mean(pmp)) %>%
+#   ggplot(aes(n, mu)) +
+#   geom_line(aes(col = sd)) +
+#   scale_color_discrete() +
+#   theme_bw()

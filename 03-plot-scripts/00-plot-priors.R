@@ -69,7 +69,7 @@ priors_plot <-
 priors_plot
    
 ggsave(
-  "bridge/figs/04-plot-prirs.pdf",
+  "06-figs/04-plot-priors.pdf",
   priors_plot,
   dpi = 320,
   height = 3,

@@ -7,7 +7,6 @@ output:
     toc: true
     toc_depth: 3
     toc_float: true
-  html_notebook: default
 ---
 
 ```{r setup, include=FALSE}
@@ -23,12 +22,12 @@ library(MASS)
 library(networktools)
 library(network)
 library(ggplot2)
-source("03-plot-adj.R")
+source("02-plot-adj.R")
 
 
 set.seed(27)
 
-net_data <- read.csv("data/01-cov-anxdep.csv")[, -1]
+net_data <- read.csv("../05-data/00-cov-anxdep.csv")[, -1]
 print(names(net_data))
 
 sim_data <- MASS::mvrnorm(n = 1029, mu = rep(0, 16), Sigma = net_data, empirical = TRUE)
@@ -195,7 +194,7 @@ plot_bridges <-
            col = "gray70") +
   # # bridge cor labels
   annotate(geom = "label",
-           label = c("0.17", "0.10", "0.21", "0.20"),
+           label = c("0.17", "0.10", "0.20", "0.20"),
            x =     c(1.5, 2.5, 1.5, 2.5),
            y =     c(3.5, 3.5, 1.5, 1.5)) +
   geom_point(size = 21) +
@@ -293,7 +292,7 @@ print(all_plots)
 ```
 
 ```{r save-ptsd-plot, include=FALSE, eval=FALSE}
-ggsave("figs/02-plot-anxdep-2.pdf",
+ggsave("../06-figs/02-plot-anxdep.pdf",
        plot = all_plots,
        dpi = 320,
        height = 4 * 3,
@@ -399,7 +398,7 @@ hyp_null3 <- c("D6--D8 = 0;
 
 confirm_null3 <- confirm(confirm_data,
                          hypothesis = hyp_null3,
-                         iter = 50000)
+                         iter = 50000)s
 confirm_null3
 ```
 
